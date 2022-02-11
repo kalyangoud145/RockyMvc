@@ -2,9 +2,11 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Mime;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -16,28 +18,23 @@ using Rocky_Utility;
 
 namespace Rocky.Controllers
 {
-    [Authorize(Roles = WC.AdminRole)]
+    //[Authorize(Roles = WC.AdminRole)]
     public class ProductController : Controller
     {
         private readonly IProductRepository _prodRepo;
         private readonly IWebHostEnvironment _webHostEnvironment;
-        public ProductController(IProductRepository prodRepo, IWebHostEnvironment webHostEnvironment)
+        private ApplicationDbContext _context;
+        public ProductController(IProductRepository prodRepo, IWebHostEnvironment webHostEnvironment, ApplicationDbContext context)
         {
             _prodRepo = prodRepo;
             _webHostEnvironment = webHostEnvironment;
+            _context = context;
         }
 
 
         public IActionResult Index()
         {
-            IEnumerable<Product> objList = _prodRepo.GetAll(includeProperties:"Category,ApplicationType");
-
-            //foreach(var obj in objList)
-            //{
-            //    obj.Category = _db.Category.FirstOrDefault(u => u.Id == obj.CategoryId);
-            //    obj.ApplicationType = _db.ApplicationType.FirstOrDefault(u => u.Id == obj.ApplicationTypeId);
-            //};
-
+            IEnumerable<Product> objList = _prodRepo.GetAll(includeProperties: "Category,ApplicationType");
             return View(objList);
         }
 
@@ -46,16 +43,7 @@ namespace Rocky.Controllers
         public IActionResult Upsert(int? id)
         {
 
-            //IEnumerable<SelectListItem> CategoryDropDown = _db.Category.Select(i => new SelectListItem
-            //{
-            //    Text = i.Name,
-            //    Value = i.Id.ToString()
-            //});
 
-            ////ViewBag.CategoryDropDown = CategoryDropDown;
-            //ViewData["CategoryDropDown"] = CategoryDropDown;
-
-            //Product product = new Product();
 
             ProductVM productVM = new ProductVM()
             {
@@ -110,7 +98,7 @@ namespace Rocky.Controllers
                 else
                 {
                     //updating
-                    var objFromDb = _prodRepo.FirstOrDefault(u => u.Id == productVM.Product.Id,isTracking:false);
+                    var objFromDb = _prodRepo.FirstOrDefault(u => u.Id == productVM.Product.Id, isTracking: false);
 
                     if (files.Count > 0)
                     {
@@ -145,13 +133,13 @@ namespace Rocky.Controllers
             }
             productVM.CategorySelectList = _prodRepo.GetAllDropdownList(WC.CategoryName);
             productVM.ApplicationTypeSelectList = _prodRepo.GetAllDropdownList(WC.ApplicationTypeName);
-         
+
             return View(productVM);
 
         }
 
 
-   
+
         //GET - DELETE
         public IActionResult Delete(int? id)
         {
@@ -159,7 +147,7 @@ namespace Rocky.Controllers
             {
                 return NotFound();
             }
-            Product product= _prodRepo.FirstOrDefault(u=>u.Id==id,includeProperties:"Category,ApplicationType");
+            Product product = _prodRepo.FirstOrDefault(u => u.Id == id, includeProperties: "Category,ApplicationType");
             //product.Category = _db.Category.Find(product.CategoryId);
             if (product == null)
             {
@@ -170,7 +158,7 @@ namespace Rocky.Controllers
         }
 
         //POST - DELETE
-        [HttpPost,ActionName("Delete")]
+        [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public IActionResult DeletePost(int? id)
         {
@@ -190,12 +178,48 @@ namespace Rocky.Controllers
 
 
             _prodRepo.Remove(obj);
-                _prodRepo.Save();
+            _prodRepo.Save();
             TempData[WC.Success] = "Action completed successfully";
             return RedirectToAction("Index");
-            
+
 
         }
+        public IActionResult Image()
+        {
+            Image image = new Image();
+            image = _context.Image.Find(13);
+            var base64 = Convert.ToBase64String(image.Images);                           
+            
+            var src = string.Format("data:application/pdf;base64,{0}", base64);
+            ImageVM imageVM = new ImageVM();
+            imageVM.src = src;
+            return View(imageVM);
+        }
 
+        [HttpPost]
+        public async Task<IActionResult> Image(ImageVM imageVM, List<IFormFile> Image)
+        {
+            Image image = new Image();
+            
+            int i = 0;
+            foreach (var item in Image)
+            {
+                if (item.Length > 0)
+                {
+                    using (var stream = new MemoryStream())
+                    {
+                        string extension = Path.GetExtension(item.ToString());
+                        image.Extension = extension;
+                        await item.CopyToAsync(stream);
+                        image.Images = stream.ToArray();
+                        await _context.Image.AddAsync(image);
+                    }
+                }
+                i++;
+            }
+            _context.SaveChanges();
+
+            return View(imageVM);
+        }
     }
 }

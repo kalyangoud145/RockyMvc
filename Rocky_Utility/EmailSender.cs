@@ -30,10 +30,7 @@ namespace Rocky_Utility
         {
             _mailJetSettings = _configuration.GetSection("MailJet").Get<MailJetSettings>();
 
-            MailjetClient client = new MailjetClient(_mailJetSettings.ApiKey, _mailJetSettings.SecretKey)
-            {
-                Version = ApiVersion.V3_1,
-            };
+            MailjetClient client = new MailjetClient(_mailJetSettings.ApiKey, _mailJetSettings.SecretKey);
             MailjetRequest request = new MailjetRequest
             {
                 Resource = Send.Resource,

@@ -238,6 +238,7 @@ namespace Rocky.Controllers
             }
             else
             {
+                return RedirectToAction(nameof(InquiryConfirmation));
                 //we need to create an inquiry
                 var PathToTemplate = _webHostEnvironment.WebRootPath + Path.DirectorySeparatorChar.ToString()
                + "templates" + Path.DirectorySeparatorChar.ToString() +
@@ -299,7 +300,7 @@ namespace Rocky.Controllers
 
 
            
-            return RedirectToAction(nameof(InquiryConfirmation));
+           // return RedirectToAction(nameof(InquiryConfirmation));
         }
         public IActionResult InquiryConfirmation(int id=0)
         {
